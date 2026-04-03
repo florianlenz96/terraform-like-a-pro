@@ -41,27 +41,26 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout
+      - name: Checkout head branch
+        if: github.event.action != 'closed'
         uses: actions/checkout@v4
+        with:
+          path: head
 
-      - name: Setup Infracost
-        uses: infracost/actions/setup@v3
+      - name: Checkout base branch
+        if: github.event.action != 'closed'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          path: base
+
+      - name: Infracost diff + PR comment
+        uses: infracost/actions/diff@v4
         with:
           api-key: ${{ secrets.INFRACOST_API_KEY }}
-
-      - name: Generate Infracost diff
-        run: |
-          infracost diff \
-            --path terraform \
-            --terraform-var-file terraform/environments/dev.tfvars \
-            --format json \
-            --out-file /tmp/infracost.json
-
-      - name: Post Infracost comment on PR
-        uses: infracost/actions/comment@v3
-        with:
-          path: /tmp/infracost.json
-          behavior: update   # update existing comment instead of adding new ones
+          base-path: base
+          head-path: head
+          enable-dashboard: "false"
 
   # ──────────────────────────────────────────────
   # 3. OPA / Conftest — custom policy checks
