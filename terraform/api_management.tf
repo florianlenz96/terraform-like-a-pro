@@ -4,7 +4,7 @@ resource "azurerm_api_management" "main" {
   location            = azurerm_resource_group.main.location
   publisher_name      = var.apim_publisher_name
   publisher_email     = var.apim_publisher_email
-  sku_name            = "ConsumpPremiumV2tion_0" # No hourly charge — great for dev/qa
+  sku_name            = "Consumption_0" # No hourly charge — great for dev/qa
 
   tags = var.tags
 }
