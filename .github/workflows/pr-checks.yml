@@ -41,53 +41,29 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. Checkout PR branch (HEAD)
-      - name: Checkout PR branch
+      - name: Checkout code
         uses: actions/checkout@v4
+
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v3
         with:
-          path: head
-          fetch-depth: 0
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
 
-      # 2. Checkout base branch (e.g. main)
-      - name: Checkout base branch
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.ref }}
-          path: base
-          fetch-depth: 0
-
-      # 3. Install Infracost CLI
-      - name: Install Infracost
-        run: |
-          curl -fsSL https://raw.githubusercontent.com/infracost/infracost/master/scripts/install.sh | sh
-          sudo mv infracost /usr/local/bin/
-
-      # 4. Generate baseline (base branch)
-      - name: Generate baseline
+      # Generate cost estimate for the current branch (with changes)
+      - name: Generate Infracost cost estimate
         run: |
           infracost breakdown \
-            --path base/terraform \
-            --format json \
-            --out-file infracost-base.json
+            --path=./terraform \          # Path to your Terraform directory
+            --format=json \
+            --out-file=/tmp/infracost.json
 
-      # 5. Generate diff (PR branch vs base)
-      - name: Generate diff
-        run: |
-          infracost diff \
-            --path head/terraform \
-            --compare-to infracost-base.json \
-            --format json \
-            --out-file infracost.json
-
-      # 6. Post comment to PR
+      # Post the diff as a PR comment (compares base vs current branch)
       - name: Post Infracost comment
-        run: |
-          infracost comment github \
-            --path=infracost.json \
-            --repo=$GITHUB_REPOSITORY \
-            --github-token=${{ github.token }} \
-            --pull-request=${{ github.event.pull_request.number }} \
-            --behavior=update
+        uses: infracost/actions/comment@v3
+        with:
+          path: /tmp/infracost.json
+          behavior: update  # Options: update, hide-and-new, delete-and-new, new
+
   # ──────────────────────────────────────────────
   # 3. OPA / Conftest — custom policy checks
   # ──────────────────────────────────────────────
