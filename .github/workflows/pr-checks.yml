@@ -34,8 +34,37 @@ jobs:
           output_format: cli
 
   # ──────────────────────────────────────────────
-  # 2. Infracost — cost estimation - automatically comment on PR from infracost cloud
+  # 2. Infracost — cost estimation + PR comment
   # ──────────────────────────────────────────────
+  infracost:
+    name: Infracost Cost Estimation
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      # Generate cost estimate for the current branch (with changes)
+      - name: Generate Infracost cost estimate
+        run: |
+          infracost breakdown \
+            --path=./terraform \
+            --format=json \
+            --out-file=/tmp/infracost.json
+
+      # Post the diff as a PR comment (compares base vs current branch)
+      - name: Post Infracost comment
+        run: |
+          infracost comment github --path=/tmp/infracost.json \
+            --repo=$GITHUB_REPOSITORY \
+            --github-token=${{ github.token }} \
+            --pull-request=${{ github.event.pull_request.number }} \
+            --behavior=update
 
   # ──────────────────────────────────────────────
   # 3. OPA / Conftest — custom policy checks
