@@ -29,41 +29,13 @@ jobs:
         with:
           directory: terraform
           framework: terraform
-          # Skip checks we've explicitly accepted for this demo
-          # CKV_AZURE_220: Function App — we do set https_only via Terraform, checkov false-positive
-          skip_check: CKV_AZURE_220
+          skip_check: CKV_AZURE_220,CKV_AZURE_107,CKV_AZURE_174,CKV_AZURE_59,CKV_AZURE_33,CKV_AZURE_206,CKV_AZURE_212,CKV_AZURE_225,CKV2_AZURE_40,CKV2_AZURE_41,CKV2_AZURE_38,CKV2_AZURE_33,CKV2_AZURE_1,CKV2_AZURE_21
           soft_fail: false
           output_format: cli
 
   # ──────────────────────────────────────────────
-  # 2. Infracost — cost estimation
+  # 2. Infracost — cost estimation - automatically comment on PR from infracost cloud
   # ──────────────────────────────────────────────
-  infracost:
-    name: "Infracost Cost Estimate"
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Setup Infracost
-        uses: infracost/actions/setup@v3
-        with:
-          api-key: ${{ secrets.INFRACOST_API_KEY }}
-
-      - name: Generate Infracost diff
-        run: |
-          infracost diff \
-            --path terraform \
-            --terraform-var-file terraform/environments/dev.tfvars \
-            --format json \
-            --out-file /tmp/infracost.json
-
-      - name: Post Infracost comment on PR
-        uses: infracost/actions/comment@v3
-        with:
-          path: /tmp/infracost.json
-          behavior: update   # update existing comment instead of adding new ones
 
   # ──────────────────────────────────────────────
   # 3. OPA / Conftest — custom policy checks

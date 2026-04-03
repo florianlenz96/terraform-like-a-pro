@@ -41,3 +41,21 @@ deny[msg] {
     [resource.address, resource.change.after.min_tls_version],
   )
 }
+
+# Only FC1 is allowed for function app service plans — it is the correct SKU
+# for Flex Consumption. Y1, EP1, P1v2, etc. are not permitted.
+allowed_function_plan_skus := {"FC1"}
+
+deny[msg] {
+  resource := input.resource_changes[_]
+  resource.type == "azurerm_service_plan"
+  resource.change.actions[_] in ["create", "update"]
+
+  sku := resource.change.after.sku_name
+  not sku in allowed_function_plan_skus
+
+  msg := sprintf(
+    "Service Plan '%s' uses SKU '%s'. Only %v is allowed for Function App plans (Flex Consumption).",
+    [resource.address, sku, allowed_function_plan_skus],
+  )
+}
