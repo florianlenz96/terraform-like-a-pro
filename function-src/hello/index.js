@@ -3,7 +3,7 @@ module.exports = async function (context, req) {
     status: 200,
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      message: "Hello from Azure Functions!",
+      message: "Hello Global Azure Bonn",
       environment: process.env.ENVIRONMENT || "unknown",
       timestamp: new Date().toISOString(),
     }),
