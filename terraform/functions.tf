@@ -4,7 +4,7 @@ resource "azurerm_storage_account" "functions" {
   resource_group_name      = azurerm_resource_group.main.name
   location                 = azurerm_resource_group.main.location
   account_tier             = "Standard"
-  account_replication_type = "LRS"
+  account_replication_type = "GRS"
 
   allow_nested_items_to_be_public = false
   https_traffic_only_enabled      = true
@@ -24,7 +24,7 @@ resource "azurerm_service_plan" "api" {
   name                = "asp-${local.name_suffix}-api"
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
-  sku_name            = "FC1"
+  sku_name            = "P1v2"
   os_type             = "Linux"
 
   tags = var.tags
