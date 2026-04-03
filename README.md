@@ -122,16 +122,47 @@ az role assignment create \
   --role "Contributor" \
   --scope "/subscriptions/$SUBSCRIPTION_ID"
 
-# Add federated credentials for each branch
-# Repeat for: refs/heads/dev, refs/heads/main, and pull_request
+# ── Federated credentials — one per OIDC subject ──────────────────────────────
+#
+# IMPORTANT: When a GitHub Actions job targets a GitHub Environment (e.g. 'dev'),
+# the OIDC token subject changes from  ref:refs/heads/dev
+#                                   to  environment:dev
+# You need SEPARATE federated credentials for branches AND environments.
+
+# Branch credentials (used by tf-plan, deploy-function, and PR checks)
+for BRANCH in dev main; do
+  az ad app federated-credential create \
+    --id "$APP_ID" \
+    --parameters "{
+      \"name\": \"github-branch-${BRANCH}\",
+      \"issuer\": \"https://token.actions.githubusercontent.com\",
+      \"subject\": \"repo:<your-org>/<your-repo>:ref:refs/heads/${BRANCH}\",
+      \"audiences\": [\"api://AzureADTokenExchange\"]
+    }"
+done
+
+# Pull request credential (used by pr-checks.yml OPA job)
 az ad app federated-credential create \
   --id "$APP_ID" \
   --parameters '{
-    "name": "github-dev-branch",
+    "name": "github-pull-request",
     "issuer": "https://token.actions.githubusercontent.com",
-    "subject": "repo:<your-org>/<your-repo>:ref:refs/heads/dev",
+    "subject": "repo:<your-org>/<your-repo>:pull_request",
     "audiences": ["api://AzureADTokenExchange"]
   }'
+
+# Environment credentials (used by tf-apply — the manual approval job)
+# Subject format is 'environment:<name>', NOT 'ref:refs/heads/<branch>'
+for ENV in dev qa; do
+  az ad app federated-credential create \
+    --id "$APP_ID" \
+    --parameters "{
+      \"name\": \"github-env-${ENV}\",
+      \"issuer\": \"https://token.actions.githubusercontent.com\",
+      \"subject\": \"repo:<your-org>/<your-repo>:environment:${ENV}\",
+      \"audiences\": [\"api://AzureADTokenExchange\"]
+    }"
+done
 ```
 
 ---
