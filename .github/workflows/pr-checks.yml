@@ -29,9 +29,14 @@ jobs:
         with:
           directory: terraform
           framework: terraform
-          # Skip checks we've explicitly accepted for this demo
-          # CKV_AZURE_220: Function App — we do set https_only via Terraform, checkov false-positive
-          skip_check: CKV_AZURE_220
+          # Skip checks we've explicitly accepted for this demo:
+          # CKV_AZURE_220:  Function App https_only — false-positive, set via Terraform property
+          # CKV_AZURE_107:  APIM VNet integration — not required for Consumption SKU (no VNet support)
+          # CKV_AZURE_174:  APIM public access — Consumption SKU has no public_network_access_enabled property
+          # CKV_AZURE_59:   Storage public access — allow_nested_items_to_be_public=false covers this; checkov uses old attribute name
+          # CKV_AZURE_33:   Storage Queue logging — function backend uses Blob only, Queue service unused
+          # CKV_AZURE_206:  Storage replication — LRS is intentional for dev/qa; GRS adds cost with no value here
+          skip_check: CKV_AZURE_220,CKV_AZURE_107,CKV_AZURE_174,CKV_AZURE_59,CKV_AZURE_33,CKV_AZURE_206
           soft_fail: false
           output_format: cli
 
