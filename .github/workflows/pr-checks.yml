@@ -59,10 +59,12 @@ jobs:
 
       # Post the diff as a PR comment (compares base vs current branch)
       - name: Post Infracost comment
-        uses: infracost/actions/comment@v3
-        with:
-          path: /tmp/infracost.json
-          behavior: update  # Options: update, hide-and-new, delete-and-new, new
+        run: |
+          infracost comment github --path=/tmp/infracost.json \
+            --repo=$GITHUB_REPOSITORY \
+            --github-token=${{ github.token }} \
+            --pull-request=${{ github.event.pull_request.number }} \
+            --behavior=update
 
   # ──────────────────────────────────────────────
   # 3. OPA / Conftest — custom policy checks
