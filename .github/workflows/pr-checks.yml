@@ -53,7 +53,7 @@ jobs:
       - name: Generate Infracost cost estimate
         run: |
           infracost breakdown \
-            --path=./terraform \          # Path to your Terraform directory
+            --path=./terraform \
             --format=json \
             --out-file=/tmp/infracost.json
 
