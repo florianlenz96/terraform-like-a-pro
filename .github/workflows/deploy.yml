@@ -1,0 +1,71 @@
+name: Deploy Infrastructure
+
+on:
+  push:
+    branches:
+      - dev   # → dev stage
+      - main  # → qa stage
+    paths:
+      - "terraform/**"
+      - ".github/workflows/deploy.yml"
+
+permissions:
+  id-token: write   # Required for OIDC login
+  contents: read
+
+jobs:
+  deploy:
+    name: "Terraform Deploy (${{ github.ref_name }})"
+    runs-on: ubuntu-latest
+
+    env:
+      # Map branch name to environment name
+      ENVIRONMENT: ${{ github.ref_name == 'main' && 'qa' || 'dev' }}
+      TF_VAR_FILE: ${{ github.ref_name == 'main' && 'environments/qa.tfvars' || 'environments/dev.tfvars' }}
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_USE_OIDC: "true"
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.8.x"
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=${ENVIRONMENT}.terraform.tfstate"
+
+      - name: Terraform Validate
+        run: terraform validate
+
+      - name: Terraform Plan
+        run: |
+          terraform plan \
+            -var-file="${TF_VAR_FILE}" \
+            -out=tfplan \
+            -detailed-exitcode
+        continue-on-error: true
+        id: plan
+
+      - name: Terraform Apply
+        if: steps.plan.outputs.exitcode == '2'  # 2 = changes present
+        run: terraform apply -auto-approve tfplan

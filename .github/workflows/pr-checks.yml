@@ -1,0 +1,126 @@
+name: PR Quality Gates
+
+on:
+  pull_request:
+    paths:
+      - "terraform/**"
+      - "policies/**"
+      - ".github/workflows/pr-checks.yml"
+
+permissions:
+  id-token: write       # OIDC for terraform plan
+  contents: read
+  pull-requests: write  # infracost PR comment
+
+jobs:
+  # ──────────────────────────────────────────────
+  # 1. Checkov — security & compliance scanning
+  # ──────────────────────────────────────────────
+  checkov:
+    name: "Checkov Security Scan"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run Checkov
+        uses: bridgecrewio/checkov-action@v12
+        with:
+          directory: terraform
+          framework: terraform
+          # Skip checks we've explicitly accepted for this demo
+          # CKV_AZURE_220: Function App — we do set https_only via Terraform, checkov false-positive
+          skip_check: CKV_AZURE_220
+          soft_fail: false
+          output_format: cli
+
+  # ──────────────────────────────────────────────
+  # 2. Infracost — cost estimation
+  # ──────────────────────────────────────────────
+  infracost:
+    name: "Infracost Cost Estimate"
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Infracost
+        uses: infracost/actions/setup@v3
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+
+      - name: Generate Infracost diff
+        run: |
+          infracost diff \
+            --path terraform \
+            --terraform-var-file terraform/environments/dev.tfvars \
+            --format json \
+            --out-file /tmp/infracost.json
+
+      - name: Post Infracost comment on PR
+        uses: infracost/actions/comment@v3
+        with:
+          path: /tmp/infracost.json
+          behavior: update   # update existing comment instead of adding new ones
+
+  # ──────────────────────────────────────────────
+  # 3. OPA / Conftest — custom policy checks
+  # ──────────────────────────────────────────────
+  opa-policy:
+    name: "OPA Policy Check (conftest)"
+    runs-on: ubuntu-latest
+
+    env:
+      ARM_CLIENT_ID: ${{ secrets.AZURE_CLIENT_ID }}
+      ARM_TENANT_ID: ${{ secrets.AZURE_TENANT_ID }}
+      ARM_SUBSCRIPTION_ID: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+      ARM_USE_OIDC: "true"
+
+    defaults:
+      run:
+        working-directory: terraform
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.8.x"
+
+      - name: Terraform Init
+        run: |
+          terraform init \
+            -backend-config="storage_account_name=${{ secrets.TF_STATE_STORAGE_ACCOUNT }}" \
+            -backend-config="container_name=tfstate" \
+            -backend-config="key=dev.terraform.tfstate"
+
+      - name: Terraform Plan (JSON output for OPA)
+        run: |
+          terraform plan \
+            -var-file="environments/dev.tfvars" \
+            -out=tfplan
+          terraform show -json tfplan > ../tfplan.json
+
+      - name: Install conftest
+        run: |
+          CONFTEST_VERSION="0.53.0"
+          wget -qO- "https://github.com/open-policy-agent/conftest/releases/download/v${CONFTEST_VERSION}/conftest_${CONFTEST_VERSION}_Linux_x86_64.tar.gz" \
+            | tar -xz -C /usr/local/bin conftest
+
+      - name: Run OPA policies
+        working-directory: ${{ github.workspace }}
+        run: |
+          conftest test tfplan.json \
+            --policy policies/opa \
+            --all-namespaces
