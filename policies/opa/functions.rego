@@ -4,7 +4,7 @@ import future.keywords.in
 
 deny[msg] {
   resource := input.resource_changes[_]
-  resource.type == "azurerm_linux_function_app_flex_consumption"
+  resource.type == "azurerm_function_app_flex_consumption"
   resource.change.actions[_] in ["create", "update"]
 
   # https_only must be explicitly set to true

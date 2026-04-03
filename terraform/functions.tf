@@ -19,11 +19,22 @@ resource "azurerm_storage_container" "deployment" {
   storage_account_id = azurerm_storage_account.functions.id
 }
 
-# Flex Consumption — no service plan needed; billing is per-execution
-resource "azurerm_linux_function_app_flex_consumption" "api" {
+# Flex Consumption requires an FC1 service plan (distinct from Y1 Consumption)
+resource "azurerm_service_plan" "api" {
+  name                = "asp-${local.name_suffix}-api"
+  resource_group_name = azurerm_resource_group.main.name
+  location            = azurerm_resource_group.main.location
+  sku_name            = "FC1"
+  os_type             = "Linux"
+
+  tags = var.tags
+}
+
+resource "azurerm_function_app_flex_consumption" "api" {
   name                = "func-${local.name_suffix}-api"
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
+  service_plan_id     = azurerm_service_plan.api.id
 
   storage_container_type      = "blobContainer"
   storage_container_endpoint  = "${azurerm_storage_account.functions.primary_blob_endpoint}${azurerm_storage_container.deployment.name}"
