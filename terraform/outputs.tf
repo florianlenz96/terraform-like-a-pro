@@ -5,7 +5,7 @@ output "apim_gateway_url" {
 
 output "function_app_hostname" {
   description = "Default hostname of the Function App"
-  value       = azurerm_linux_function_app.api.default_hostname
+  value       = azurerm_linux_function_app_flex_consumption.api.default_hostname
 }
 
 output "resource_group_name" {

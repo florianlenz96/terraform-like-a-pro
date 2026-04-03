@@ -6,51 +6,44 @@ resource "azurerm_storage_account" "functions" {
   account_tier             = "Standard"
   account_replication_type = "LRS"
 
-  # No public blob access — blobs are private
   allow_nested_items_to_be_public = false
-
-  https_traffic_only_enabled = true
-  min_tls_version            = "TLS1_2"
-
-  tags = var.tags
-}
-
-resource "azurerm_service_plan" "functions" {
-  name                = "asp-${local.name_suffix}-fn"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
-  os_type             = "Linux"
-  sku_name            = "Y1" # Consumption plan
+  https_traffic_only_enabled      = true
+  min_tls_version                 = "TLS1_2"
 
   tags = var.tags
 }
 
-resource "azurerm_linux_function_app" "api" {
+# Blob container where Flex Consumption stores deployment packages
+resource "azurerm_storage_container" "deployment" {
+  name               = "deployments"
+  storage_account_id = azurerm_storage_account.functions.id
+}
+
+# Flex Consumption — no service plan needed; billing is per-execution
+resource "azurerm_linux_function_app_flex_consumption" "api" {
   name                = "func-${local.name_suffix}-api"
   resource_group_name = azurerm_resource_group.main.name
   location            = azurerm_resource_group.main.location
 
-  storage_account_name       = azurerm_storage_account.functions.name
-  storage_account_access_key = azurerm_storage_account.functions.primary_access_key
-  service_plan_id            = azurerm_service_plan.functions.id
+  storage_container_type      = "blobContainer"
+  storage_container_endpoint  = "${azurerm_storage_account.functions.primary_blob_endpoint}${azurerm_storage_container.deployment.name}"
+  storage_authentication_type = "StorageAccountConnectionString"
+  storage_access_key          = azurerm_storage_account.functions.primary_access_key
+
+  runtime_name    = "node"
+  runtime_version = "20"
 
   https_only = true
 
-  site_config {
-    application_stack {
-      node_version = "18"
-    }
+  maximum_instance_count = 10
+  instance_memory_in_mb  = 2048
 
-    cors {
-      allowed_origins = ["https://portal.azure.com"]
-    }
-  }
+  site_config {}
 
   app_settings = {
-    FUNCTIONS_WORKER_RUNTIME = "node"
-    ENVIRONMENT              = var.environment
-    WEBSITE_RUN_FROM_PACKAGE = "1"
+    ENVIRONMENT = var.environment
   }
 
   tags = var.tags
 }
+

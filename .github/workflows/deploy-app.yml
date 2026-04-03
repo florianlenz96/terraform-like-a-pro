@@ -1,0 +1,57 @@
+name: Deploy Function App
+
+# Triggers only when application code changes — completely independent of infra.
+# Infrastructure and application have different lifecycles:
+#   - Infra (deploy-infra.yml): rare, risky, always needs approval
+#   - App  (this file):         frequent, low-risk, auto-deploy to dev
+
+on:
+  push:
+    branches:
+      - dev   # → dev stage  (auto-deploy, no approval)
+      - main  # → qa stage   (pauses for manual approval)
+    paths:
+      - "function-src/**"
+      - ".github/workflows/deploy-app.yml"
+
+permissions:
+  id-token: write  # Required for OIDC login
+  contents: read
+
+jobs:
+  deploy:
+    name: "Deploy Function App (${{ github.ref_name }})"
+    runs-on: ubuntu-latest
+
+    env:
+      ENVIRONMENT: ${{ github.ref_name == 'main' && 'qa' || 'dev' }}
+      # Naming convention from functions.tf: func-${prefix}-${environment}-api
+      FUNCTION_APP_NAME: func-tlap-${{ github.ref_name == 'main' && 'qa' || 'dev' }}-api
+      RESOURCE_GROUP: rg-tlap-${{ github.ref_name == 'main' && 'qa' || 'dev' }}
+
+    # No environment target for dev → deploys immediately.
+    # For qa, target the 'qa' GitHub Environment to pause for approval.
+    environment: ${{ github.ref_name == 'main' && 'qa' || '' }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Azure Login (OIDC)
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Package function source
+        run: |
+          cd function-src
+          zip -r ../function.zip .
+
+      - name: Deploy to Function App
+        run: |
+          az functionapp deployment source config-zip \
+            --resource-group "${RESOURCE_GROUP}" \
+            --name "${FUNCTION_APP_NAME}" \
+            --src function.zip

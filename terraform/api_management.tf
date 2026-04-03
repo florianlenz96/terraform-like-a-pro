@@ -47,7 +47,7 @@ resource "azurerm_api_management_api_policy" "hello_backend" {
       <inbound>
         <base />
         <set-backend-service
-          base-url="https://${azurerm_linux_function_app.api.default_hostname}/api/hello" />
+          base-url="https://${azurerm_linux_function_app_flex_consumption.api.default_hostname}/api/hello" />
         <rate-limit calls="100" renewal-period="60" />
       </inbound>
       <backend>
