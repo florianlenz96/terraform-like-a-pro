@@ -12,8 +12,11 @@ GitHub Actions, Checkov, Infracost, and OPA (via conftest).
 
 ```
 GitHub Actions
-  ├── push dev  → Terraform deploy → Azure (dev stage)
-  ├── push main → Terraform deploy → Azure (qa stage)
+  ├── push dev / main
+  │     ├── tf-plan          → runs immediately, uploads plan artifact
+  │     ├── tf-apply         → pauses for manual approval (GitHub Environment)
+  │     │                      then applies the approved plan
+  │     └── deploy-function  → zips function-src/, deploys to Function App
   └── pull_request
         ├── Checkov   — security & compliance scan
         ├── Infracost — cost delta comment on PR
@@ -85,6 +88,22 @@ Configure these in **Settings → Secrets and variables → Actions**:
 | `AZURE_SUBSCRIPTION_ID` | Target Azure Subscription ID |
 | `TF_STATE_STORAGE_ACCOUNT` | Name of the backend storage account |
 | `INFRACOST_API_KEY` | Get free key at https://www.infracost.io |
+
+### Setting up GitHub Environments (manual approval gate)
+
+The deploy workflow pauses before `terraform apply` by targeting a **GitHub Environment**.
+Required reviewers are configured in the GitHub UI — not in the YAML.
+
+1. Go to **Settings → Environments → New environment**
+2. Create two environments: `dev` and `qa`
+3. For each environment, add **Required reviewers** (your GitHub username or a team)
+4. Optionally set a **Deployment branch rule** (e.g., only the `dev` branch can deploy to `dev`)
+
+Once configured, every push will:
+1. Run `terraform plan` immediately → you see the diff in the Actions log
+2. Pause and send an email to reviewers asking for approval
+3. On approval → run `terraform apply` with the exact plan that was reviewed
+4. Deploy the Function App code
 
 ### Setting up OIDC (Workload Identity)
 
