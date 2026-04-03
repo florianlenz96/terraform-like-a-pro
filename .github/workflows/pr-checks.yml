@@ -34,33 +34,8 @@ jobs:
           output_format: cli
 
   # ──────────────────────────────────────────────
-  # 2. Infracost — cost estimation
+  # 2. Infracost — cost estimation - automatically comment on PR from infracost cloud
   # ──────────────────────────────────────────────
-  infracost:
-    name: "Infracost Cost Estimate"
-    runs-on: ubuntu-latest
-
-    steps:
-      - name: Checkout head branch
-        if: github.event.action != 'closed'
-        uses: actions/checkout@v4
-        with:
-          path: head
-
-      - name: Checkout base branch
-        if: github.event.action != 'closed'
-        uses: actions/checkout@v4
-        with:
-          ref: ${{ github.event.pull_request.base.ref }}
-          path: base
-
-      - name: Infracost diff + PR comment
-        uses: infracost/actions/diff@v4
-        with:
-          api-key: ${{ secrets.INFRACOST_API_KEY }}
-          base-path: base
-          head-path: head
-          enable-dashboard: "false"
 
   # ──────────────────────────────────────────────
   # 3. OPA / Conftest — custom policy checks
