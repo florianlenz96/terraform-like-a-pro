@@ -34,51 +34,33 @@ jobs:
           output_format: cli
 
   # ──────────────────────────────────────────────
-  # 2. Infracost — cost estimation - automatically comment on PR from infracost cloud
+  # 2. Infracost — cost estimation + PR comment
   # ──────────────────────────────────────────────
   infracost:
     name: Infracost Cost Estimation
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout PR branch
+      - name: Checkout head (PR) branch
+        if: github.event.action != 'closed'
         uses: actions/checkout@v4
-
-      - name: Setup Infracost
-        uses: infracost/actions/setup@v3
         with:
-          api-key: ${{ secrets.INFRACOST_API_KEY }}
+          path: head
 
       - name: Checkout base branch
-        run: |
-          git fetch origin ${{ github.base_ref }}
-          git checkout origin/${{ github.base_ref }}
+        if: github.event.action != 'closed'
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.pull_request.base.ref }}
+          path: base
 
-      - name: Generate Infracost baseline
-        run: |
-          infracost breakdown --path . \
-            --format json \
-            --out-file infracost-base.json
-
-      - name: Checkout PR branch again
-        run: |
-          git checkout ${{ github.head_ref }}
-
-      - name: Generate Infracost diff
-        run: |
-          infracost diff --path . \
-            --compare-to infracost-base.json \
-            --format json \
-            --out-file infracost.json
-
-      - name: Post Infracost comment
-        run: |
-          infracost comment github \
-            --path=infracost.json \
-            --repo=$GITHUB_REPOSITORY \
-            --github-token=${{ github.token }} \
-            --pull-request=${{ github.event.pull_request.number }} \
-            --behavior=update
+      - name: Infracost diff + post PR comment
+        uses: infracost/actions/diff@v4
+        with:
+          api-key: ${{ secrets.INFRACOST_API_KEY }}
+          base-path: base
+          head-path: head
+          enable-dashboard: "false"
   # ──────────────────────────────────────────────
   # 3. OPA / Conftest — custom policy checks
   # ──────────────────────────────────────────────
