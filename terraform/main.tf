@@ -9,7 +9,7 @@ resource "azurerm_resource_group" "main" {
 }
 
 resource "azurerm_resource_group" "this" {
-  name     = "rg-flzt-${local.name_suffix}"
+  name     = "rg-test-${local.name_suffix}"
   location = var.location
   tags     = var.tags
 }
