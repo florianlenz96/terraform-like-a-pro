@@ -1,6 +1,6 @@
 environment          = "dev"
 location             = "West Europe"
-prefix               = "aga"
+prefix               = "adc"
 apim_publisher_name  = "Terraform Like a Pro"
 apim_publisher_email = "demo@example.com"
 
