@@ -8,8 +8,8 @@ resource "azurerm_resource_group" "main" {
   tags     = var.tags
 }
 
-#resource "azurerm_resource_group" "this" {
-#  name = "this-test"
-#  location = var.location
-#  tags     = var.tags
-#}
+resource "azurerm_resource_group" "this" {
+  name = "this-test"
+  location = var.location
+  tags     = var.tags
+}
