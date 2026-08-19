@@ -8,8 +8,8 @@ resource "azurerm_resource_group" "main" {
   tags     = var.tags
 }
 
-resource "azurerm_resource_group" "this" {
-  name = "this-test"
+resource "azurerm_resource_group" "meetup" {
+  name = "this-meetup"
   location = var.location
   tags     = var.tags
 }
